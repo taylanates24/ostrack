@@ -13,7 +13,7 @@ git clone https://github.com/taylanates24/ostrack.git
 cd ostrack
 ```
 
-**2- Install from the Dcoekrfile**
+**2- Install from the Dockerfile**
 
 ```
 docker build -t ostrack -f Dockerfile .
