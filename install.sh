@@ -91,6 +91,12 @@ pip install setuptools==59.5.0
 
 echo ""
 echo ""
+echo "****************** Installing pydantic ******************"
+pip install pydantic==1.10.9
+
+
+echo ""
+echo ""
 echo "****************** Installing wandb ******************"
 pip install wandb
 

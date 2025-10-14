@@ -3,7 +3,7 @@
 
 	"context": "..",
 
-	//"dockerFile": "../docker/Dockerfile",
+	// "dockerFile": "../docker/Dockerfile",
 	"image": "ostrack:latest",
 
 	"runArgs": [
@@ -15,9 +15,12 @@
 		//for GUI
 		"--privileged",
 		"-v", "/tmp/.X11-unix:/tmp/.X11-unix",
-		"-e", "DISPLAY=:0",
+		"-e", "DISPLAY=${localEnv:DISPLAY}",
+		"-e", "QT_X11_NO_MITSHM=1",
+		"-e", "QT_QPA_PLATFORM_PLUGIN_PATH=/usr/local/lib/python3.8/dist-packages/cv2/qt/plugins/platforms/",
 		"--ipc", "host"
-
+		//find / -name "libqxcb.so" 2>/dev/null
+		//xhost +
 	],
 	"customizations": {
 		"vscode": {

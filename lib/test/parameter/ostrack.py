@@ -21,7 +21,7 @@ def parameters(yaml_name: str):
     params.search_size = cfg.TEST.SEARCH_SIZE
 
     # Network checkpoint path
-    params.checkpoint = 'vitb_384_mae_ce_32x4_got10k_ep100/OSTrack_ep0100.pth.tar'
+    params.checkpoint = 'models/vitb_384_mae_ce_32x4_got10k_ep100/OSTrack_ep0100.pth.tar'
 
     # whether to save boxes from all queries
     params.save_all_boxes = False

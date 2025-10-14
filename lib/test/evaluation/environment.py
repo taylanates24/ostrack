@@ -34,10 +34,10 @@ def create_default_local_file():
     with open(path, 'w') as f:
         settings = EnvSettings()
 
-        f.write('from test.evaluation.environment import EnvSettings\n\n')
-        f.write('def local_env_settings():\n')
-        f.write('    settings = EnvSettings()\n\n')
-        f.write('    # Set your local paths here.\n\n')
+        f.write('from lib.test.evaluation.environment import EnvSettings\\n\\n')
+        f.write('def local_env_settings():\\n')
+        f.write('    settings = EnvSettings()\\n\\n')
+        f.write('    # Set your local paths here.\\n\\n')
 
         for attr in dir(settings):
             comment_str = None

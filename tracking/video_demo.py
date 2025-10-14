@@ -1,7 +1,6 @@
 import os
 import sys
 import argparse
-import cv2
 
 prj_path = os.path.join(os.path.dirname(__file__), '..')
 if prj_path not in sys.path:
@@ -10,63 +9,43 @@ if prj_path not in sys.path:
 from lib.test.evaluation import Tracker
 
 
-def select_roi(videofile):
-    """Allow user to select ROI from the first frame of the video.
-    args:
-        videofile: Path to the video file
-    returns:
-        tuple: (x, y, w, h) coordinates of selected ROI
-    """
-    cap = cv2.VideoCapture(videofile)
-    if not cap.isOpened():
-        print("Error: Could not open video file")
-        return None
-    
-    ret, frame = cap.read()
-    if not ret:
-        print("Error: Could not read first frame")
-        return None
-    
-    # Create window and allow ROI selection
-    cv2.namedWindow("Select ROI", cv2.WINDOW_NORMAL)
-    roi = cv2.selectROI("Select ROI", frame, False)
-    cv2.destroyAllWindows()
-    cap.release()
-    
-    return roi
-
-def run_video(tracker_name, tracker_param, videofile, optional_box=None, debug=None, save_results=False):
+def run_video(tracker_name, tracker_param, videofile, optional_box=None, debug=None, save_results=False, bounding_box_thickness=2, bounding_box_color=(0, 255, 0), output_fps=20.0):
     """Run the tracker on your webcam.
     args:
         tracker_name: Name of tracking method.
         tracker_param: Name of parameter file.
         debug: Debug level.
     """
-    # If no optional box is provided, allow user to select ROI
-    if optional_box is None:
-        print("No bounding box provided. Please select ROI in the video window...")
-        optional_box = select_roi(videofile)
-        if optional_box is None:
-            print("No ROI selected. Exiting...")
-            return
     
     tracker = Tracker(tracker_name, tracker_param, "video")
-    tracker.run_video(videofilepath=videofile, optional_box=optional_box, debug=debug, save_results=save_results)
+    
+    tracker.run_video(videofilepath=videofile, 
+                      debug=debug, 
+                      optional_box=optional_box,
+                      save_results=save_results, 
+                      bounding_box_thickness=bounding_box_thickness, 
+                      bounding_box_color=bounding_box_color, 
+                      output_fps=output_fps)
 
 
 def main():
     parser = argparse.ArgumentParser(description='Run the tracker on your webcam.')
     parser.add_argument('--tracker_name', type=str, default='ostrack', help='Name of tracking method.')
     parser.add_argument('--tracker_param', type=str, default='vitb_384_mae_ce_32x4_got10k_ep100', help='Name of parameter file.')
-    parser.add_argument('--videofile', type=str, default='videos/8.mp4', help='path to a video file.')
+    parser.add_argument('--videofile', type=str, default='videos/1_ir.mp4', help='path to a video file.')
     parser.add_argument('--optional_box', type=float, default=None, nargs="+", help='optional_box with format x y w h.')
     parser.add_argument('--debug', type=int, default=0, help='Debug level.')
-    parser.add_argument('--save_results', dest='save_results', action='store_true', default=True, help='Save bounding boxes')   
+    parser.add_argument('--save_results', dest='save_results', action='store_true', default=True, help='Save bounding boxes')
+    parser.add_argument('--bounding_box_thickness', type=int, default=1, help='Thickness of bounding box')
+    parser.add_argument('--bounding_box_color', type=int, default=(0, 0, 255), nargs=3, help='Color of bounding box (B G R). Default is green.')
+    parser.add_argument('--output_fps', type=float, default=30, help='FPS of the output video')
     parser.set_defaults(save_results=False)
 
     args = parser.parse_args()
 
-    run_video(args.tracker_name, args.tracker_param, args.videofile, args.optional_box, args.debug, args.save_results)
+    color = tuple(args.bounding_box_color) if args.bounding_box_color else (0, 255, 0)
+
+    run_video(args.tracker_name, args.tracker_param, args.videofile, args.optional_box, args.debug, args.save_results, args.bounding_box_thickness, color, args.output_fps)
 
 
 if __name__ == '__main__':

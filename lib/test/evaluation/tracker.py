@@ -24,6 +24,34 @@ def trackerlist(name: str, parameter_name: str, dataset_name: str, run_ids = Non
     return [Tracker(name, parameter_name, dataset_name, run_id, display_name, result_only) for run_id in run_ids]
 
 
+
+def select_roi(videofile):
+    """Allow user to select ROI from the first frame of the video.
+    args:
+        videofile: Path to the video file
+    returns:
+        tuple: (x, y, w, h) coordinates of selected ROI
+    """
+    cap = cv.VideoCapture(videofile)
+    if not cap.isOpened():
+        print("Error: Could not open video file")
+        return None
+    
+    ret, frame = cap.read()
+    if not ret:
+        print("Error: Could not read first frame")
+        return None
+    
+    # Create window and allow ROI selection
+    cv.namedWindow("Select ROI", cv.WINDOW_NORMAL)
+    cv.resizeWindow("Select ROI", 1152, 864)
+    roi = cv.selectROI("Select ROI", frame, False)
+    cv.destroyAllWindows()
+    cap.release()
+    
+    return roi
+
+
 class Tracker:
     """Wraps the tracker for evaluation and running purposes.
     args:
@@ -151,7 +179,7 @@ class Tracker:
 
         return output
 
-    def run_video(self, videofilepath, optional_box=None, debug=None, visdom_info=None, save_results=False):
+    def run_video(self, videofilepath, optional_box=None, debug=None, save_results=False, bounding_box_thickness=2, bounding_box_color=(0, 255, 0), output_fps=20.0):
         """Run the tracker with the vieofile.
         args:
             debug: Debug level.
@@ -188,18 +216,20 @@ class Tracker:
 
         cap = cv.VideoCapture(videofilepath)
         display_name = 'Display: ' + tracker.params.tracker_name
-        cv.namedWindow(display_name, cv.WINDOW_NORMAL | cv.WINDOW_KEEPRATIO)
-        cv.resizeWindow(display_name, 960, 720)
+        # cv.namedWindow(display_name, cv.WINDOW_NORMAL | cv.WINDOW_KEEPRATIO)
+        # cv.resizeWindow(display_name, 960, 720)
         success, frame = cap.read()
-        cv.imshow(display_name, frame)
+        # cv.imshow(display_name, frame)
         frame_width = frame.shape[1]
         frame_height = frame.shape[0]
-        out_video = cv.VideoWriter(output_video_path, fourcc, 20.0, (frame_width, frame_height)) # 20.0 is the fps
+        out_video = cv.VideoWriter(output_video_path, fourcc, output_fps, (frame_width, frame_height)) # 20.0 is the fps
         init_box = None
         init_area = None
+        
         def _build_init_info(box):
             return {'init_bbox': box}
 
+        
         if success is not True:
             print("Read frame from {} failed.".format(videofilepath))
             exit(-1)
@@ -209,19 +239,29 @@ class Tracker:
             tracker.initialize(frame, _build_init_info(optional_box))
             output_boxes.append(optional_box)
         else:
-            while True:
-                # cv.waitKey()
-                frame_disp = frame.copy()
+            print("No bounding box provided. Please select ROI in the video window...")
+            optional_box = select_roi(videofilepath)
+            if optional_box is None:
+                print("No ROI selected. Exiting...")
+                return
+            assert isinstance(optional_box, (list, tuple))
+            assert len(optional_box) == 4, "valid box's foramt is [x,y,w,h]"
+            tracker.initialize(frame, _build_init_info(optional_box))
+            output_boxes.append(optional_box)
+            # while True:
+                # # cv.waitKey()
+                # frame_disp = frame.copy()
 
-                cv.putText(frame_disp, 'Select target ROI and press ENTER', (20, 30), cv.FONT_HERSHEY_COMPLEX_SMALL,
-                           1.5, (0, 0, 0), 1)
+                # cv.putText(frame_disp, 'Select target ROI and press ENTER', (20, 30), cv.FONT_HERSHEY_COMPLEX_SMALL,
+                #            1.5, (0, 0, 0), 1)
 
-                x, y, w, h = cv.selectROI(display_name, frame_disp, fromCenter=False)
-                init_state = [x, y, w, h]
-                init_area = w * h  # Store initial bbox area
-                tracker.initialize(frame, _build_init_info(init_state))
-                output_boxes.append(init_state)
-                break
+                # x, y, w, h = cv.selectROI(display_name, frame_disp, fromCenter=False)
+                # init_state = [x, y, w, h]
+                # init_area = w * h  # Store initial bbox area
+                # tracker.initialize(frame, _build_init_info(init_state))
+                # output_boxes.append(init_state)
+                # break
+
 
         while True:
             ret, frame = cap.read()
@@ -245,7 +285,7 @@ class Tracker:
             # Only draw if current area is not more than 2x initial area
             if current_area <= 1.5 * init_area:
                 cv.rectangle(frame_disp, (state[0], state[1]), (state[2] + state[0], state[3] + state[1]),
-                             (0, 255, 0), 5)
+                             bounding_box_color, bounding_box_thickness)
 
             font_color = (0, 0, 0)
             cv.putText(frame_disp, 'Tracking!', (20, 30), cv.FONT_HERSHEY_COMPLEX_SMALL, 1,
@@ -257,6 +297,8 @@ class Tracker:
 
             # Display the resulting frame
             out_video.write(frame_disp)
+            cv.namedWindow(display_name, cv.WINDOW_NORMAL | cv.WINDOW_KEEPRATIO)
+
             cv.imshow(display_name, frame_disp)
             key = cv.waitKey(1)
             if key == ord('q'):
