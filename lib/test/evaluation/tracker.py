@@ -382,10 +382,10 @@ def detect_red_objects_box(image, display=False):
     # upper_red = np.array([179, 255, 255])
     
     
-    lower_red = np.array([118, 92, 25])
+    lower_red = np.array([130, 138, 121])
     # lower_red = np.array([130, 72, 26])
     # lower_red = np.array([113, 82, 96])
-    upper_red = np.array([179, 255, 109])
+    upper_red = np.array([179, 196, 200])
     
     # lower_red = np.array([101, 98, 97])
     # upper_red = np.array([179, 255, 255])

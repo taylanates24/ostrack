@@ -34,7 +34,7 @@ def main():
     parser.add_argument('--tracker_name', type=str, default='ostrack', help='Name of tracking method.')
     parser.add_argument('--tracker_param', type=str, default='vitb_384_mae_ce_32x4_got10k_ep100', help='Name of parameter file.')
     # parser.add_argument('--videofile', type=str, default='videos/1_ir.mp4', help='path to a video file.')
-    parser.add_argument('--videofile', type=str, default='videos/red_car_2.mp4', help='path to a video file.')
+    parser.add_argument('--videofile', type=str, default='videos/red_object.mp4', help='path to a video file.')
     parser.add_argument('--optional_box', type=float, default=None, nargs="+", help='optional_box with format x y w h.')
     parser.add_argument('--debug', type=int, default=0, help='Debug level.')
     parser.add_argument('--save_results', dest='save_results', action='store_true', default=True, help='Save bounding boxes')
