@@ -25,18 +25,20 @@ def run_video(tracker_name, tracker_param, videofile, optional_box=None, debug=N
                       save_results=save_results, 
                       bounding_box_thickness=bounding_box_thickness, 
                       bounding_box_color=bounding_box_color, 
-                      output_fps=output_fps)
+                      output_fps=output_fps,
+                      detect_red=True)
 
 
 def main():
     parser = argparse.ArgumentParser(description='Run the tracker on your webcam.')
     parser.add_argument('--tracker_name', type=str, default='ostrack', help='Name of tracking method.')
     parser.add_argument('--tracker_param', type=str, default='vitb_384_mae_ce_32x4_got10k_ep100', help='Name of parameter file.')
-    parser.add_argument('--videofile', type=str, default='videos/1_ir.mp4', help='path to a video file.')
+    # parser.add_argument('--videofile', type=str, default='videos/1_ir.mp4', help='path to a video file.')
+    parser.add_argument('--videofile', type=str, default='videos/red_car_2.mp4', help='path to a video file.')
     parser.add_argument('--optional_box', type=float, default=None, nargs="+", help='optional_box with format x y w h.')
     parser.add_argument('--debug', type=int, default=0, help='Debug level.')
     parser.add_argument('--save_results', dest='save_results', action='store_true', default=True, help='Save bounding boxes')
-    parser.add_argument('--bounding_box_thickness', type=int, default=1, help='Thickness of bounding box')
+    parser.add_argument('--bounding_box_thickness', type=int, default=2, help='Thickness of bounding box')
     parser.add_argument('--bounding_box_color', type=int, default=(0, 0, 255), nargs=3, help='Color of bounding box (B G R). Default is green.')
     parser.add_argument('--output_fps', type=float, default=30, help='FPS of the output video')
     parser.set_defaults(save_results=False)

@@ -25,30 +25,39 @@ def trackerlist(name: str, parameter_name: str, dataset_name: str, run_ids = Non
 
 
 
-def select_roi(videofile):
+def select_roi(videofile, select_red=False, frame=None):
     """Allow user to select ROI from the first frame of the video.
     args:
         videofile: Path to the video file
     returns:
         tuple: (x, y, w, h) coordinates of selected ROI
     """
-    cap = cv.VideoCapture(videofile)
-    if not cap.isOpened():
-        print("Error: Could not open video file")
-        return None
-    
-    ret, frame = cap.read()
-    if not ret:
-        print("Error: Could not read first frame")
-        return None
-    
+    a_cap = None
+    if frame is None:
+        a_cap = cv.VideoCapture(videofile)
+        if not a_cap.isOpened():
+            print("Error: Could not open video file")
+            return None
+
+        ret, frame = a_cap.read()
+        if not ret:
+            print("Error: Could not read first frame")
+            a_cap.release()
+            return None
+
     # Create window and allow ROI selection
-    cv.namedWindow("Select ROI", cv.WINDOW_NORMAL)
-    cv.resizeWindow("Select ROI", 1152, 864)
-    roi = cv.selectROI("Select ROI", frame, False)
-    cv.destroyAllWindows()
-    cap.release()
-    
+
+    if select_red:
+        roi = detect_red_objects_box(frame, display=False)
+    else:
+        cv.namedWindow("Select ROI", cv.WINDOW_NORMAL)
+        cv.resizeWindow("Select ROI", 1152, 864)
+        roi = cv.selectROI("Select ROI", frame, False)
+        cv.destroyAllWindows()
+
+    if a_cap:
+        a_cap.release()
+
     return roi
 
 
@@ -179,7 +188,7 @@ class Tracker:
 
         return output
 
-    def run_video(self, videofilepath, optional_box=None, debug=None, save_results=False, bounding_box_thickness=2, bounding_box_color=(0, 255, 0), output_fps=20.0):
+    def run_video(self, videofilepath, optional_box=None, debug=None, save_results=False, bounding_box_thickness=2, bounding_box_color=(0, 255, 0), output_fps=20.0, detect_red=False):
         """Run the tracker with the vieofile.
         args:
             debug: Debug level.
@@ -240,7 +249,9 @@ class Tracker:
             output_boxes.append(optional_box)
         else:
             print("No bounding box provided. Please select ROI in the video window...")
-            optional_box = select_roi(videofilepath)
+            
+                
+            optional_box = select_roi(videofilepath, select_red=detect_red)
             if optional_box is None:
                 print("No ROI selected. Exiting...")
                 return
@@ -286,7 +297,18 @@ class Tracker:
             if current_area <= 1.5 * init_area:
                 cv.rectangle(frame_disp, (state[0], state[1]), (state[2] + state[0], state[3] + state[1]),
                              bounding_box_color, bounding_box_thickness)
-
+            else:
+                new_box = select_roi(videofilepath, select_red=detect_red, frame=frame)
+                print("new box is selected!")
+                if new_box:
+                    state = list(new_box)
+                    init_box = state
+                    init_area = state[2] * state[3]
+                    tracker.initialize(frame, _build_init_info(state))
+                    output_boxes.append(state)
+                    cv.rectangle(frame_disp, (state[0], state[1]), (state[2] + state[0], state[3] + state[1]),
+                                 bounding_box_color, bounding_box_thickness)
+                
             font_color = (0, 0, 0)
             cv.putText(frame_disp, 'Tracking!', (20, 30), cv.FONT_HERSHEY_COMPLEX_SMALL, 1,
                        font_color, 1)
@@ -348,4 +370,58 @@ class Tracker:
             raise ValueError("type of image_file should be str or list")
 
 
+import cv2
+def detect_red_objects_box(image, display=False):
+    # Read the image
+    hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
+    # Define the range for red color in HSV based on calibration
+    # lower_red = np.array([121, 150, 93])
+    # # lower_red = np.array([170, 120, 123])
+    # # lower_red = np.array([113, 82, 96])
+    # upper_red = np.array([179, 255, 255])
+    
+    
+    lower_red = np.array([118, 92, 25])
+    # lower_red = np.array([130, 72, 26])
+    # lower_red = np.array([113, 82, 96])
+    upper_red = np.array([179, 255, 109])
+    
+    # lower_red = np.array([101, 98, 97])
+    # upper_red = np.array([179, 255, 255])
+
+    # Create a mask for red color
+    mask = cv2.inRange(hsv_image, lower_red, upper_red)
+
+    # Find contours in the mask
+    contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    bbox_list = []
+    for contour in contours:
+        # Get the bounding box
+        x, y, w, h = cv2.boundingRect(contour)
+        # Draw the bounding box
+        if w > 10 and h > 10:  # Filter out small contours
+            
+            bbox_list.append([x, y, w, h])
+
+    if not bbox_list:
+        return None
+    
+    biggest_bbox = max(bbox_list, key=lambda x: x[2] * x[3])
+    
+    x, y, w, h = biggest_bbox
+    padding_factor = 1.5
+    new_w = w * padding_factor
+    new_h = h * padding_factor
+    new_x = x - (new_w - w) / 2
+    new_y = y - (new_h - h) / 2
+    
+    padded_bbox = [int(new_x), int(new_y), int(new_w), int(new_h)]
+    
+    cv2.rectangle(image, (int(new_x), int(new_y)), (int(new_x + new_w), int(new_y + new_h)), (0, 255, 0), 2)
+    if display:
+        cv2.imshow('Detected Red Objects', image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    return padded_bbox
