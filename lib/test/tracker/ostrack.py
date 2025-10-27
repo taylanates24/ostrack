@@ -26,7 +26,7 @@ class OSTrack(BaseTracker):
         self.network.eval()
         self.preprocessor = Preprocessor()
         self.state = None
-
+        self.initialized = False
         self.feat_sz = self.cfg.TEST.SEARCH_SIZE // self.cfg.MODEL.BACKBONE.STRIDE
         # motion constrain
         self.output_window = hann2d(torch.tensor([self.feat_sz, self.feat_sz]).long(), centered=True).cuda()
@@ -65,6 +65,7 @@ class OSTrack(BaseTracker):
         # save states
         self.state = info['init_bbox']
         self.frame_id = 0
+        self.initialized = True
         if self.save_all_boxes:
             '''save all predicted boxes'''
             all_boxes_save = info['init_bbox'] * self.cfg.MODEL.NUM_OBJECT_QUERIES

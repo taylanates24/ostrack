@@ -4,7 +4,7 @@
 	"context": "..",
 
 	// "dockerFile": "../docker/Dockerfile",
-	"image": "ostrack:latest",
+	"image": "ostrack_simple:latest",
 
 	"runArgs": [
 		"--gpus", "all",

@@ -46,6 +46,7 @@ DATA:
     SAMPLE_PER_EPOCH: 10000
 MODEL:
   PRETRAIN_FILE: "mae_pretrain_vit_base.pth"
+  CHECKPOINT_FILE: "models/vitb_256_mae_ce_32x4_ep300/OSTrack_ep0300.pth.tar"
   EXTRA_MERGER: False
   RETURN_INTER: False
   BACKBONE:

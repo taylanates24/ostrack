@@ -33,7 +33,7 @@ cfg.MODEL.BACKBONE.CE_TEMPLATE_RANGE = 'ALL'  # choose between ALL, CTR_POINT, C
 cfg.MODEL.HEAD = edict()
 cfg.MODEL.HEAD.TYPE = "CENTER"
 cfg.MODEL.HEAD.NUM_CHANNELS = 256
-
+cfg.MODEL.CHECKPOINT_FILE = "models/vitb_256_mae_ce_32x4_ep300/OSTrack_ep0300.pth.tar"
 # TRAIN
 cfg.TRAIN = edict()
 cfg.TRAIN.LR = 0.0001

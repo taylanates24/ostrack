@@ -23,7 +23,8 @@ def trackerlist(name: str, parameter_name: str, dataset_name: str, run_ids = Non
         run_ids = [run_ids]
     return [Tracker(name, parameter_name, dataset_name, run_id, display_name, result_only) for run_id in run_ids]
 
-
+def build_init_info(box):
+    return {'init_bbox': box}
 
 def select_roi(videofile, select_red=False, frame=None):
     """Allow user to select ROI from the first frame of the video.
@@ -74,12 +75,16 @@ class Tracker:
                  result_only=False):
         assert run_id is None or isinstance(run_id, int)
 
+        self.tracker = None
         self.name = name
         self.parameter_name = parameter_name
         self.dataset_name = dataset_name
         self.run_id = run_id
         self.display_name = display_name
+        self.output_boxes = []
 
+        self.init_box = None
+        self.init_area = None
         env = env_settings()
         if self.run_id is None:
             self.results_dir = '{}/{}/{}'.format(env.results_path, self.name, self.parameter_name)
@@ -235,8 +240,7 @@ class Tracker:
         init_box = None
         init_area = None
         
-        def _build_init_info(box):
-            return {'init_bbox': box}
+
 
         
         if success is not True:
@@ -245,7 +249,7 @@ class Tracker:
         if optional_box is not None:
             assert isinstance(optional_box, (list, tuple))
             assert len(optional_box) == 4, "valid box's foramt is [x,y,w,h]"
-            tracker.initialize(frame, _build_init_info(optional_box))
+            tracker.initialize(frame, build_init_info(optional_box))
             output_boxes.append(optional_box)
         else:
             print("No bounding box provided. Please select ROI in the video window...")
@@ -254,26 +258,12 @@ class Tracker:
             optional_box = select_roi(videofilepath, select_red=detect_red)
             if optional_box is None:
                 print("No ROI selected. Exiting...")
-                return
-            assert isinstance(optional_box, (list, tuple))
-            assert len(optional_box) == 4, "valid box's foramt is [x,y,w,h]"
-            tracker.initialize(frame, _build_init_info(optional_box))
-            output_boxes.append(optional_box)
-            # while True:
-                # # cv.waitKey()
-                # frame_disp = frame.copy()
 
-                # cv.putText(frame_disp, 'Select target ROI and press ENTER', (20, 30), cv.FONT_HERSHEY_COMPLEX_SMALL,
-                #            1.5, (0, 0, 0), 1)
+            if len(optional_box) > 0:
+                tracker.initialize(frame, build_init_info(optional_box))
+                output_boxes.append(optional_box)
 
-                # x, y, w, h = cv.selectROI(display_name, frame_disp, fromCenter=False)
-                # init_state = [x, y, w, h]
-                # init_area = w * h  # Store initial bbox area
-                # tracker.initialize(frame, _build_init_info(init_state))
-                # output_boxes.append(init_state)
-                # break
-
-
+        i = 0
         while True:
             ret, frame = cap.read()
 
@@ -283,32 +273,51 @@ class Tracker:
             frame_disp = frame.copy()
 
             # Draw box
-            if init_box is None:
+            if init_box is None and len(output_boxes) > 0:
                 init_box = output_boxes[0]
                 init_area = init_box[2] * init_box[3]  
+            
+            elif not tracker.initialized:
+                
+                new_box = select_roi(videofilepath, select_red=detect_red, frame=frame)
+                
+                if new_box is None:
+                    print("No ROI selected. New frame will be read.")
+                    continue
+                else:
+                    tracker.initialize(frame, build_init_info(optional_box))
+                    output_boxes.append(optional_box)
+                
+            time_start = time.time()
             out = tracker.track(frame)
+            time_end = time.time()
+            print(f"Tracking time: {(time_end - time_start) * 1000} ms")
             state = [int(s) for s in out['target_bbox']]
             output_boxes.append(state)
 
             # Calculate current bbox area
             current_area = state[2] * state[3]
-            
+            bounding_box_color = (0, 255, 100)
+            bounding_box_thickness = 4
             # Only draw if current area is not more than 2x initial area
             if current_area <= 1.5 * init_area:
                 cv.rectangle(frame_disp, (state[0], state[1]), (state[2] + state[0], state[3] + state[1]),
                              bounding_box_color, bounding_box_thickness)
             else:
                 new_box = select_roi(videofilepath, select_red=detect_red, frame=frame)
+                if new_box is None:
+                    print("No ROI selected. New frame will be read.")
+                    continue
                 print("new box is selected!")
                 if new_box:
                     state = list(new_box)
                     init_box = state
                     init_area = state[2] * state[3]
-                    tracker.initialize(frame, _build_init_info(state))
+                    tracker.initialize(frame, build_init_info(state))
                     output_boxes.append(state)
                     cv.rectangle(frame_disp, (state[0], state[1]), (state[2] + state[0], state[3] + state[1]),
                                  bounding_box_color, bounding_box_thickness)
-                
+            
             font_color = (0, 0, 0)
             cv.putText(frame_disp, 'Tracking!', (20, 30), cv.FONT_HERSHEY_COMPLEX_SMALL, 1,
                        font_color, 1)
@@ -323,8 +332,10 @@ class Tracker:
 
             cv.imshow(display_name, frame_disp)
             key = cv.waitKey(1)
+            
             if key == ord('q'):
                 break
+            
             elif key == ord('r'):
                 ret, frame = cap.read()
                 frame_disp = frame.copy()
@@ -336,9 +347,25 @@ class Tracker:
                 x, y, w, h = cv.selectROI(display_name, frame_disp, fromCenter=False)
                 init_state = [x, y, w, h]
                 init_area = w * h  # Store initial bbox area
-                tracker.initialize(frame, _build_init_info(init_state))
+                tracker.initialize(frame, build_init_info(init_state))
                 output_boxes.append(init_state)
-
+                
+            if i % 100 == 0:
+                output_boxes = []
+                new_box = select_roi(videofilepath, select_red=detect_red, frame=frame)
+                if new_box is None:
+                    print("No ROI selected. New frame will be read.")
+                    continue
+                print("new box is selected!")
+                if new_box:
+                    state = list(new_box)
+                    init_box = state
+                    init_area = state[2] * state[3]
+                    tracker.initialize(frame, build_init_info(state))
+                    output_boxes.append(state)
+                    cv.rectangle(frame_disp, (state[0], state[1]), (state[2] + state[0], state[3] + state[1]),
+                                 bounding_box_color, bounding_box_thickness)
+            i += 1
         # When everything done, release the capture
         cap.release()
         cv.destroyAllWindows()
@@ -353,6 +380,47 @@ class Tracker:
             bbox_file = '{}.txt'.format(base_results_path)
             np.savetxt(bbox_file, tracked_bb, delimiter='\t', fmt='%d')
 
+    def run(self, frame, box):
+        
+
+            
+        if self.tracker is None:
+            params = self.get_parameters()
+
+            params.tracker_name = self.name
+            params.param_name = self.parameter_name
+            params.debug = False
+            self.tracker = self.create_tracker(params)
+            
+        if self.tracker is not None:
+            if box is not None:
+                if not self.tracker.initialized:
+                    self.tracker.initialize(frame, build_init_info(box))
+                    self.output_boxes.append(box)
+            else:
+                return
+
+        if self.init_box is None and len(self.output_boxes) > 0:
+            self.init_box = self.output_boxes[0]
+            self.init_area = self.init_box[2] * self.init_box[3] 
+    
+        time_start = time.time()
+        out = self.tracker.track(frame)
+        time_end = time.time()
+        print(f"Tracking time: {(time_end - time_start) * 1000} ms")
+        state = [int(s) for s in out['target_bbox']]
+        self.output_boxes.append(state)
+
+        # Calculate current bbox area
+        current_area = state[2] * state[3]
+        
+        if current_area <= 1.5 * self.init_area:
+            
+            return state
+        
+        else:
+
+            return None
 
     def get_parameters(self):
         """Get parameters."""
@@ -382,11 +450,10 @@ def detect_red_objects_box(image, display=False):
     # upper_red = np.array([179, 255, 255])
     
     
-    lower_red = np.array([130, 138, 121])
-    # lower_red = np.array([130, 72, 26])
-    # lower_red = np.array([113, 82, 96])
-    upper_red = np.array([179, 196, 200])
-    
+    # lower_red = np.array([161, 148, 100])
+    # upper_red = np.array([179, 255, 255])
+    lower_red = np.array([161, 148, 100])
+    upper_red = np.array([179, 255, 255])
     # lower_red = np.array([101, 98, 97])
     # upper_red = np.array([179, 255, 255])
 
@@ -411,7 +478,7 @@ def detect_red_objects_box(image, display=False):
     biggest_bbox = max(bbox_list, key=lambda x: x[2] * x[3])
     
     x, y, w, h = biggest_bbox
-    padding_factor = 1.5
+    padding_factor = 1.1
     new_w = w * padding_factor
     new_h = h * padding_factor
     new_x = x - (new_w - w) / 2
@@ -419,9 +486,13 @@ def detect_red_objects_box(image, display=False):
     
     padded_bbox = [int(new_x), int(new_y), int(new_w), int(new_h)]
     
-    cv2.rectangle(image, (int(new_x), int(new_y)), (int(new_x + new_w), int(new_y + new_h)), (0, 255, 0), 2)
+    # cv2.rectangle(image, (int(new_x), int(new_y)), (int(new_x + new_w), int(new_y + new_h)), (255, 255, 255), 4)
     if display:
         cv2.imshow('Detected Red Objects', image)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+    
+    if len(padded_bbox) > 0:
+        print('Box detected!')
+        
     return padded_bbox
